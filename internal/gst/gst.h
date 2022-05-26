@@ -6,6 +6,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+extern void goHandlePipelineBuffer(void *buffer, int bufferLen, int samples);
+
 GstElement *gstreamer_receive_create_pipeline(char *pipeline);
 void gstreamer_receive_start_pipeline(GstElement *pipeline);
 void gstreamer_receive_stop_pipeline(GstElement *pipeline);

@@ -1,6 +1,7 @@
 #include "gst.h"
 
 #include <gst/app/gstappsrc.h>
+#include <gst/app/gstappsink.h>
 
 GMainLoop *gstreamer_receive_main_loop = NULL;
 void gstreamer_receive_start_mainloop(void) {
@@ -35,6 +36,25 @@ static gboolean gstreamer_receive_bus_call(GstBus *bus, GstMessage *msg, gpointe
   return TRUE;
 }
 
+GstFlowReturn gstreamer_send_new_sample_handler(GstElement *object, gpointer user_data) {
+  GstSample *sample = NULL;
+  GstBuffer *buffer = NULL;
+  gpointer copy = NULL;
+  gsize copy_size = 0;
+
+  g_signal_emit_by_name (object, "pull-sample", &sample);
+  if (sample) {
+    buffer = gst_sample_get_buffer(sample);
+    if (buffer) {
+      gst_buffer_extract_dup(buffer, 0, gst_buffer_get_size(buffer), &copy, &copy_size);
+      goHandlePipelineBuffer(copy, copy_size, GST_BUFFER_DURATION(buffer));
+    }
+    gst_sample_unref (sample);
+  }
+
+  return GST_FLOW_OK;
+}
+
 GstElement *gstreamer_receive_create_pipeline(char *pipeline) {
   gst_init(NULL, NULL);
   GError *error = NULL;
@@ -43,6 +63,12 @@ GstElement *gstreamer_receive_create_pipeline(char *pipeline) {
 
 void gstreamer_receive_start_pipeline(GstElement *pipeline) {
   GstBus *bus = gst_pipeline_get_bus(GST_PIPELINE(pipeline));
+
+  GstElement *appsink = gst_bin_get_by_name(GST_BIN(pipeline), "appsink");
+  g_object_set(appsink, "emit-signals", TRUE, NULL);
+  g_signal_connect(appsink, "new-sample", G_CALLBACK(gstreamer_send_new_sample_handler), NULL);
+  gst_object_unref(appsink);
+
   gst_bus_add_watch(bus, gstreamer_receive_bus_call, NULL);
   gst_object_unref(bus);
 

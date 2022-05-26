@@ -34,15 +34,15 @@ func CreatePipeline(payloadType webrtc.PayloadType, codecName string) *Pipeline 
 	pipelineStr := "appsrc format=time is-live=true do-timestamp=true name=src ! application/x-rtp"
 	switch strings.ToLower(codecName) {
 	case "vp8":
-		pipelineStr += fmt.Sprintf(", payload=%d, encoding-name=VP8-DRAFT-IETF-01 ! rtpvp8depay ! decodebin ! fakesink", payloadType)
+		pipelineStr += fmt.Sprintf(", payload=%d, encoding-name=VP8-DRAFT-IETF-01 ! rtpvp8depay ! decodebin ! appsink name=appsink", payloadType)
 	case "opus":
-		pipelineStr += fmt.Sprintf(", payload=%d, encoding-name=OPUS ! rtpopusdepay ! decodebin ! fakesink", payloadType)
+		pipelineStr += fmt.Sprintf(", payload=%d, encoding-name=OPUS ! rtpopusdepay ! decodebin ! appsink name=appsink", payloadType)
 	case "vp9":
-		pipelineStr += " ! rtpvp9depay ! decodebin ! fakesink"
+		pipelineStr += " ! rtpvp9depay ! decodebin ! appsink name=appsink"
 	case "h264":
-		pipelineStr += " ! rtph264depay ! decodebin ! fakesink"
+		pipelineStr += " ! rtph264depay ! decodebin ! appsink name=appsink"
 	case "g722":
-		pipelineStr += " clock-rate=8000 ! rtpg722depay ! decodebin ! fakesink"
+		pipelineStr += " clock-rate=8000 ! rtpg722depay ! decodebin ! appsink name=appsink"
 	default:
 		panic("Unhandled codec " + codecName)
 	}
@@ -67,4 +67,10 @@ func (p *Pipeline) Push(buffer []byte) {
 	b := C.CBytes(buffer)
 	defer C.free(b)
 	C.gstreamer_receive_push_buffer(p.Pipeline, b, C.int(len(buffer)))
+}
+
+//export goHandlePipelineBuffer
+func goHandlePipelineBuffer(buffer unsafe.Pointer, bufferLen C.int, duration C.int) {
+	fmt.Println(C.GoBytes(buffer, bufferLen))
+	C.free(buffer)
 }
