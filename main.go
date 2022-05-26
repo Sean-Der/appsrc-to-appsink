@@ -29,7 +29,11 @@ const indexHTML = `
 
   <script>
   	window.start = () => {
-			let pc = new RTCPeerConnection()
+			let pc = new RTCPeerConnection({
+				iceServers: [{
+					urls: 'stun:stun.l.google.com:19302'
+				}]
+			})
 
     	pc.oniceconnectionstatechange = () => {
     	  let el = document.createElement('p')
@@ -37,6 +41,24 @@ const indexHTML = `
 
     	  document.getElementById('iceConnectionStates').appendChild(el);
     	}
+
+			pc.onicecandidate = event => {
+				if (event.candidate === null) {
+				  return fetch('/doSignaling', {
+				    method: 'post',
+				    headers: {
+				  	'Accept': 'application/json, text/plain, */*',
+				  	'Content-Type': 'application/json'
+				    },
+				    body: JSON.stringify(pc.localDescription)
+				  })
+					.then(res => res.json())
+					.then(res => {
+					  pc.setRemoteDescription(res)
+					})
+					.catch(window.alert)
+				}
+			}
 
 			navigator.mediaDevices.getUserMedia({audio: true, video: true})
 			.then(gumStream => {
@@ -49,19 +71,6 @@ const indexHTML = `
 				pc.createOffer()
 				.then(offer => {
 				  pc.setLocalDescription(offer)
-
-				  return fetch('/doSignaling', {
-				    method: 'post',
-				    headers: {
-				  	'Accept': 'application/json, text/plain, */*',
-				  	'Content-Type': 'application/json'
-				    },
-				    body: JSON.stringify(offer)
-				  })
-				})
-				.then(res => res.json())
-				.then(res => {
-				  pc.setRemoteDescription(res)
 				})
 				.catch(window.alert)
 			})
@@ -74,7 +83,13 @@ const indexHTML = `
 var api *webrtc.API //nolint
 
 func doSignaling(w http.ResponseWriter, r *http.Request) {
-	peerConnection, err := api.NewPeerConnection(webrtc.Configuration{})
+	peerConnection, err := api.NewPeerConnection(webrtc.Configuration{
+		ICEServers: []webrtc.ICEServer{
+			{
+				URLs: []string{"stun:stun.l.google.com:19302"},
+			},
+		},
+	})
 	if err != nil {
 		panic(err)
 	}
